@@ -1,4 +1,6 @@
+from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QTime
+from PyQt5.QtCore import *
 
 class DataModel:
     def __init__(self):
@@ -17,13 +19,19 @@ class DataModel:
            self.serverGubun = serverGubun
 
         def getServerGubun(self):
-            current_time = QTime.currentTime()
-            text_time = current_time.toString("hh:mm:ss")
-            time_msg = "현재시간 : " + text_time
             if self.serverGubun == "1":
-                return "<<모의 투자>> " + time_msg
+                return "<<모의 투자>> "
             else:
-                return "<<실 서버>> " + time_msg
+                return "<<실 서버>> "
+
+        # ##### 상태표시줄에 들어갈 현재시간
+        # def timeout(self):
+        #     current_time = QTime.currentTime()             # 현재시간 구함
+        #     text_time = current_time.toString("hh:mm:ss")  # 현재시간을 "hh:mm:ss"형식으로 변경
+        #     time_msg = "현재시간 : " + text_time            # 표출할 메세지
+        #
+        #     self.statusbar.showMessage("서버 연결 중 | " + time_msg)  # 상태바에 표출
+
 
     class ItemInfo:
         def __init__(self, itemCode, itemName):
@@ -35,7 +43,7 @@ class DataModel:
 
     class StockTrdata:
         def __init__(self, stockName, stockCode, closingMonth, parValue,
-                  capital, listedStock, creditRatio, bestYear, lowstYear, marketValue, per, eps, roe, pbr, bps, take,
+                  capital, listedStock, creditRatio, bestYear, lowYear, marketValue, per, eps, roe, pbr, bps, take,
                   operatProfit, netIncome, openPrice, highPrice, upperPrice, lowerPrice, standardPrice, currentPrice,
                      changeSymbol, netChange, fluctuation, volume, tradePrepare):
             self.stockName = stockName
@@ -47,7 +55,7 @@ class DataModel:
             self.listedStock = listedStock
             self.creditRatio = creditRatio
             self.bestYear = bestYear
-            self.lowstYear = lowstYear
+            self.lowYear = lowYear
             self.marketValue = marketValue
             self.per = per
             self.eps = eps

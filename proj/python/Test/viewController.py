@@ -13,9 +13,10 @@ from PyQt5 import uic
 from PyQt5.QAxContainer import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
+from PyQt5.QtCore import QTime
 
 import csv
-form_class = uic.loadUiType("main_windows.ui")[0]
+form_class = uic.loadUiType("main_windows_2.ui")[0]
 
 class ViewController(QMainWindow, form_class):
     def __init__(self, my_model):
@@ -46,7 +47,27 @@ class ViewController(QMainWindow, form_class):
         if not os.path.isdir(dirname):
             os.mkdir(dirname)
 
+
+        ##### 타이머 설정 1 - 상태표시줄 현재시간
+        self.timer = QTimer(self)
+        self.timer.start(1000)
+        self.timer.timeout.connect(self.timeout)
+
+        ##### 타이머 설정 2 - 실시간 조회
+        self.timer2 = QTimer(self)
+        self.timer2.start(1000*10)
+        self.timer2.timeout.connect(self.timeout2)
 ###
+
+    ##### 종료이벤트 발생시 메세지박스로 종료 확인 함수
+    def closeEvent(self, QCloseEvent):
+        re = QMessageBox.question(self, "종료 확인", "종료 하시겠습니까?",
+                    QMessageBox.Yes|QMessageBox.No)
+
+        if re == QMessageBox.Yes:
+            QCloseEvent.accept()
+        else:
+            QCloseEvent.ignore()
 
     def login(self):
         self.kiwoom.dynamicCall("CommConnect()")
@@ -78,16 +99,34 @@ class ViewController(QMainWindow, form_class):
         self.kiwoom.OnEventConnect.connect(self.detail_account_info2)  # 잔고정보 요청
         self.kiwoom.OnReceiveTrData.connect(self.trdata_slot)             #예수금 및잔고 정보 수신
 
+
+    ##### 상태표시줄에 들어갈 현재시간
+    def timeout(self):
+        current_time = QTime.currentTime()
+        text_time = current_time.toString("hh:mm:ss")
+        time_msg = "현재시간 : " + text_time
+
+        self.statusbar.showMessage("<<모의 투자>> " + time_msg)
+
+    ##### 잔고 및 보유종목현황 실시간 조회
+    def timeout2(self):
+        self.kiwoom.OnEventConnect.connect(self.detail_account_info1)     #예수금 정보 요청
+        self.kiwoom.OnEventConnect.connect(self.detail_account_info2)     #잔고정보 요청
+        self.kiwoom.OnReceiveTrData.connect(self.trdata_slot)             #예수금 및 잔고 정보 수신
+        # self.listWidget_2.addItem(QListWidgetItem("잔고현황 업데이트"))
 #
 ##
+
     def event_connect(self, nErrCode):
         if nErrCode == 0:
-            self.label.setText("로그인 성공")
+            # self.label.setText("로그인 성공")
+            # self.label_5.setText("로그인 성공")
             self.get_login_info()
             self.getItemList()
             # ---
             self.getCodeListByMarket()
             self.listWidget.addItem(QListWidgetItem("로그인 성공"))
+            self.listWidget_2.addItem(QListWidgetItem("로그인 성공"))
             # ---
 
         elif nErrCode == 100:
@@ -188,15 +227,6 @@ class ViewController(QMainWindow, form_class):
 
         print(itemName, " 저장")
 
-        # self.input_data.clear()
-        # self.repeatNum = 0
-        #
-        # json_object = {
-        #     line
-        # }
-        # json_string = json.dumps(json_object)
-        # print(json_string)
-
     # 데이터 수신 후 저장
     def receive_trdata(self, screen_no, rqname, trcode, recordname, prev_next, data_len, err_code, msg1, msg2):
         if trcode == "opt10081":
@@ -225,14 +255,6 @@ class ViewController(QMainWindow, form_class):
                             self.kiwoom.dynamicCall("GetCommData(Qstring, QString, int, QString)", trcode, rqname,
                                                     index, "거래대금"))
 
-                        # data = {
-                        #     # 'itemName' : itemName,
-                        #     'date' : m_date,
-                        #     'openPrice' : openPrice
-                        # }
-                        # json_data = json.dumps(data)
-                        # print(json_data)
-
                         self.input_data.append(
                             (m_date, openPrice, highPrice, lowPrice, currentPrice, volumn, tradingValue))
 
@@ -240,17 +262,6 @@ class ViewController(QMainWindow, form_class):
                         self.repeatNum = -1
                     else:
                         self.repeatNum = prev_next
-
-    # def setItemList(self, itemName, m_date, openPrice):
-    #
-    #     data = {
-    #         'itemName' : itemName,
-    #         'date' : m_date,
-    #         'openPrice' : openPrice
-    #     }
-    #     json_data = json.dumps(data)
-    #     print(json_data)
-    ###
 
 #     종목 리스트 요청
     def getItemList(self):
@@ -307,9 +318,9 @@ class ViewController(QMainWindow, form_class):
                 creditRatio = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
                                                              recordname, 0, "신용비율")
                 bestYear = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
-                                                             recordname, 0, "연중최고")
-                lowstYear = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
-                                                             recordname, 0, "연중최저")
+                                                             recordname, 0, "연중최고").replace("-", "").replace("+", "")
+                lowYear = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
+                                                             recordname, 0, "연중최저").replace("-", "").replace("+", "")
                 marketValue = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
                                                              recordname, 0, "시가총액")
                 per = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
@@ -329,13 +340,13 @@ class ViewController(QMainWindow, form_class):
                 netIncome = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
                                                recordname, 0, "당기순이익")
                 openPrice = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
-                                                    recordname, 0, "시가")
+                                                    recordname, 0, "시가").replace("-", "").replace("+", "")
                 highPrice = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
-                                                    recordname, 0, "고가")
+                                                    recordname, 0, "고가").replace("-", "").replace("+", "")
                 upperPrice = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
-                                                    recordname, 0, "상한가")
+                                                    recordname, 0, "상한가").replace("-", "").replace("+", "")
                 lowerPrice = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
-                                                    recordname, 0, "하한가")
+                                                    recordname, 0, "하한가").replace("-", "").replace("+", "")
                 standardPrice = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
                                                     recordname, 0, "기준가")
                 currentPrice = self.kiwoom.dynamicCall("GetCommData(QString, QString, int, QString", trcode,
@@ -358,7 +369,7 @@ class ViewController(QMainWindow, form_class):
                 #
 
                 self.myModel.myStockTrdata = dm.DataModel.StockTrdata(stockName, stockCode, closingMonth, parValue,
-                  capital, listedStock, creditRatio, bestYear, lowstYear, marketValue, per, eps, roe, pbr, bps, take,
+                  capital, listedStock, creditRatio, bestYear, lowYear, marketValue, per, eps, roe, pbr, bps, take,
                   operatProfit, netIncome, openPrice, highPrice, upperPrice, lowerPrice, standardPrice, currentPrice,
                   changeSymbol, netChange, fluctuation, volume, tradePrepare)
 
@@ -370,7 +381,7 @@ class ViewController(QMainWindow, form_class):
                 print("상장주식: " + str(self.myModel.myStockTrdata.listedStock))
                 print("신용비율: " + str(self.myModel.myStockTrdata.creditRatio))
                 print("연중최고: " + str(self.myModel.myStockTrdata.bestYear))
-                print("연중최저: " + str(self.myModel.myStockTrdata.lowstYear))
+                print("연중최저: " + str(self.myModel.myStockTrdata.lowYear))
                 print("시가총액: " + str(self.myModel.myStockTrdata.marketValue))
                 print("PER: " + str(self.myModel.myStockTrdata.per))
                 print("EPS: " + str(self.myModel.myStockTrdata.eps))
@@ -405,7 +416,7 @@ class ViewController(QMainWindow, form_class):
                 self.listWidget.addItem(QListWidgetItem("상장주식:" + listedStock))
                 self.listWidget.addItem(QListWidgetItem("신용비율:" + creditRatio))
                 self.listWidget.addItem(QListWidgetItem("연중최고:" + bestYear))
-                self.listWidget.addItem(QListWidgetItem("연중최저:" + lowstYear))
+                self.listWidget.addItem(QListWidgetItem("연중최저:" + lowYear))
                 self.listWidget.addItem(QListWidgetItem("시가총액:" + marketValue))
                 self.listWidget.addItem(QListWidgetItem("PER:" + per))
                 self.listWidget.addItem(QListWidgetItem("EPS:" + eps))
@@ -429,22 +440,44 @@ class ViewController(QMainWindow, form_class):
                 #
                 #
 
+                ### wishList
                 url = "http://localhost:8000/wish/add"
                 headers = {'Content-Type': 'application/json; charset=utf-8'}
-                payload = {'stockCode' : stockCode, 'stockName' : stockName, 'member' : {'apiId' : userId},
-                           'closingMonth' : closingMonth, 'parValue' : parValue, 'capital' : capital,
-                           'listedStock' : listedStock, 'creditRatio' : creditRatio, 'bestYear' : bestYear,
-                           'lowstYear' : lowstYear, 'marketValue' : marketValue, 'per' : per, 'eps' : eps, 'roe' : roe,
-                           'pbr' : pbr, 'bps' : bps, 'take' : take, 'operatProfit' : operatProfit,
-                           'netIncome' : netIncome, 'openPrice' : openPrice, 'highPrice' : highPrice,
-                           'upperPrice' : upperPrice, 'lowerPrice' : lowerPrice, 'standardPrice' : standardPrice,
-                           'currentPrice': currentPrice, 'netChange': netChange, 'fluctuation': fluctuation,
-                           'volume' : volume, 'tradePrepare' : tradePrepare}
-                # payload = {'stockCode' : stockCode, 'stockName' : stockName, 'member' : {'apiId' : userId}}
-                data_tr = json.dumps(payload)
-                res = requests.post(url, headers=headers, data=data_tr)
+                payload = {'stockCode' : stockCode, 'stockName' : stockName, 'member' : {'apiId' : userId}}
+                data_wl = json.dumps(payload)
+                res = requests.post(url, headers=headers, data=data_wl)
                 print(res.status_code)
                 print(res.text)
+                print("wish 추가")
+
+                ### 주식 정보 Data Insert
+                url_data = "http://localhost:8000/stock/add/stockdata"
+                headers_data = {'Content-Type': 'application/json; charset=utf-8'}
+                payload_data = {'stockCode': stockCode, 'stockName': stockName, 'currentPrice': currentPrice,
+                                'netChange': netChange, 'fluctuation': fluctuation,
+                                'volumeValue': volume, 'tradePrepare': tradePrepare, 'standardPrice' : standardPrice,
+                                'netChangeSymbol' : changeSymbol, 'upperPrice' : upperPrice, 'lowerPrice' : lowerPrice,
+                                'openPrice' : openPrice, 'highPrice' : highPrice}
+                data_st = json.dumps(payload_data)
+                res_data = requests.post(url_data, headers=headers_data, data=data_st)
+                print(res_data.status_code)
+                print(res_data.text)
+                print("주식 정보 데이터 추가")
+
+                ### 기업 정보 Data Insert
+                url_info = "http://localhost:8000/stock/add/stockinfo"
+                headers_info = {'Content-Type': 'application/json; charset=utf-8'}
+                payload_info = {'stockCode': stockCode, 'stockName': stockName, 'closingMonth' : closingMonth,
+                                'parValue' : parValue, 'capital' : capital, 'listedStock' : listedStock,
+                                'creditRatio' : creditRatio, 'bestYear' : bestYear, 'lowYear' : lowYear,
+                                'marketValue' : marketValue, 'perValue' : per, 'epsValue' : eps, 'roeValue' : roe,
+                                'pbrValue' : pbr, 'bpsValue' : bps, 'take' : take, 'operationProfit' : operatProfit,
+                                'netIncome' : netIncome}
+                data_info = json.dumps(payload_info)
+                res_info = requests.post(url_info, headers=headers_info, data=data_info)
+                print(res_info.status_code)
+                print(res_info.text)
+                print("기업 정보 데이터 추가")
 
         # def stock_order(self, sRQName, sScreenNo, sAccNo, nOrderType, sCode, nQty, nPrice, sHogaGb, sOrgOrderNo):
 
@@ -539,7 +572,7 @@ class ViewController(QMainWindow, form_class):
             self.tableWidget_balance.setItem(0, 6, estimated_deposit)
 
             ##### 로그현황에 결과 띄우기
-            self.listWidget.addItem(QListWidgetItem("잔고현황 조회 완료"))
+            self.listWidget_2.addItem(QListWidgetItem("잔고현황 조회 완료"))
             ###############################################################
 
             ##### 종목현황 반환
@@ -591,7 +624,7 @@ class ViewController(QMainWindow, form_class):
             ###############################################################
 
             ##### 로그현황에 결과 띄우기
-            self.listWidget.addItem(QListWidgetItem("종목현황 조회 완료"))
+            self.listWidget_2.addItem(QListWidgetItem("종목현황 조회 완료"))
 
             ##### 슬롯연결 끊기
             self.stop_screen_cancel(2000)
@@ -688,5 +721,7 @@ class ViewController(QMainWindow, form_class):
         self.kiwoom.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)",
                                 ["send_order_req", "0102", account, order_type_lookup[order_type], code, num, price,
                                  hoga_lookup[hoga], ""])
+
+        self.listWidget_2.addItem(QListWidgetItem("주문 완료"))
 
 
